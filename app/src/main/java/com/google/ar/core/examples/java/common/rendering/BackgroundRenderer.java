@@ -15,6 +15,7 @@
 package com.google.ar.core.examples.java.common.rendering;
 
 import android.content.Context;
+import android.graphics.Canvas;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
@@ -56,8 +57,7 @@ public class BackgroundRenderer {
 
   /**
    * Allocates and initializes OpenGL resources needed by the background renderer. Must be called on
-   * the OpenGL thread, typically in {@link GLSurfaceView.Renderer#onSurfaceCreated(GL10,
-   * EGLConfig)}.
+   * the OpenGL thread, typically in .
    *
    * @param context Needed to access shader source.
    */
@@ -115,7 +115,7 @@ public class BackgroundRenderer {
    * accurately follow static physical objects. This must be called <b>before</b> drawing virtual
    * content.
    *
-   * @param frame The current {@code Frame} as returned by {@link Session#update()}.
+   * @param frame The current {@code Frame} as returned by {@link- Session # update()}.
    */
   public void draw(@NonNull Frame frame) {
     // If display rotation changed (also includes view size change), we need to re-query the uv
@@ -228,6 +228,7 @@ public class BackgroundRenderer {
     GLES20.glEnable(GLES20.GL_DEPTH_TEST);
 
     ShaderUtil.checkGLError(TAG, "BackgroundRendererDraw");
+
   }
 
   private static final float[] QUAD_COORDS =

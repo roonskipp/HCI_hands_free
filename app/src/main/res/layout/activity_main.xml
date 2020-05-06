@@ -13,8 +13,10 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/relativeLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.google.ar.core.examples.java.helloar.HelloArActivity">
@@ -23,6 +25,51 @@
       android:id="@+id/surfaceview"
       android:layout_width="fill_parent"
       android:layout_height="fill_parent"
-      android:layout_gravity="top"/>
+      android:layout_gravity="top"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
 
-</RelativeLayout>
+  <Button
+      android:id="@+id/displayMeshBtn"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="256dp"
+      android:layout_marginTop="649dp"
+      android:layout_marginEnd="8dp"
+      android:layout_marginBottom="28dp"
+      android:onClick="onClickMeshBtn"
+      android:text="@string/display_mesh"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent">
+
+  </Button>
+
+
+  <TextView
+      android:id="@+id/vectorText"
+      android:layout_width="326dp"
+      android:layout_height="650dp"
+      android:layout_marginStart="44dp"
+      android:layout_marginTop="46dp"
+      android:layout_marginEnd="228dp"
+      android:layout_marginBottom="573dp"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.149"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.011" />
+
+  <com.google.ar.core.examples.java.helloar.CircleView
+      android:id="@+id/circleView"
+      android:layout_width="0dp"
+      android:layout_height="0dp"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="@+id/surfaceview"
+      app:layout_constraintVertical_bias="0.499" />
+
+</android.support.constraint.ConstraintLayout>

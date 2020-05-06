@@ -16,11 +16,25 @@
 
 package com.google.ar.core.examples.java.helloar;
 
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.hardware.camera2.CaptureRequest;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.v7.app.AppCompatActivity;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TabHost;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.ar.core.ArCoreApk;
@@ -41,8 +55,11 @@ import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
 import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
+
+
 import java.io.IOException;
 import java.util.EnumSet;
+import java.util.List;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -52,7 +69,7 @@ import javax.microedition.khronos.opengles.GL10;
  * ARCore API. The application will display any detected planes and will allow the user to tap on a
  * plane to place a 3d model of the Android robot.
  */
-public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.Renderer {
+public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.Renderer, SurfaceHolder.Callback {
   private static final String TAG = HelloArActivity.class.getSimpleName();
 
   // Rendering. The Renderers are created here, and initialized when the GL surface is created.
@@ -60,12 +77,63 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
   private boolean installRequested;
 
+  private boolean meshBtnClicked;
+
+  private CircleView circleView;
+
+  // Used to calculate where to draw cursor
+  private int deviceHeight;
+  private int deviceWidth;
+
+  private SurfaceHolder surfaceHolder;
+
+  // Looper handler.
+  private Handler backgroundHandler;
+
+  // Looper handler thread.
+  private HandlerThread backgroundThread;
+
+  // Prevent any changes to camera capture session after CameraManager.openCamera() is called, but
+  // before camera device becomes active.
+  private boolean captureSessionChangesPossible = true;
+
+
+  // used to display face orientation vectors on screen
+  private TextView faceOrientationText;
+
   private Session session;
   private final SnackbarHelper messageSnackbarHelper = new SnackbarHelper();
   private DisplayRotationHelper displayRotationHelper;
 
   private final BackgroundRenderer backgroundRenderer = new BackgroundRenderer();
   private final ObjectRenderer virtualObject = new ObjectRenderer();
+
+
+  // A list of CaptureRequest keys that can cause delays when switching between AR and non-AR modes.
+  private List<CaptureRequest.Key<?>> keysThatCanCauseCaptureDelaysWhenModified;
+
+  private <T> boolean checkIfKeyCanCauseDelay(CaptureRequest.Key<T> key) {
+    if (Build.VERSION.SDK_INT >= 28) {
+      // On Android P and later, return true if key is difficult to apply per-frame.
+      return keysThatCanCauseCaptureDelaysWhenModified.contains(key);
+    } else {
+      // On earlier Android versions, log a warning since there is no API to determine whether
+      // the key is difficult to apply per-frame. Certain keys such as CONTROL_AE_TARGET_FPS_RANGE
+      // are known to cause a noticeable delay on certain devices.
+      // If avoiding unexpected capture delays when switching between non-AR and AR modes is
+      // important, verify the runtime behavior on each pre-Android P device on which the app will
+      // be distributed. Note that this device-specific runtime behavior may change when the
+      // device's operating system is updated.
+      Log.w(
+              TAG,
+              "Changing "
+                      + key
+                      + " may cause a noticeable capture delay. Please verify actual runtime behavior on"
+                      + " specific pre-Android P devices that this app will be distributed on.");
+      // Allow the change since we're unable to determine whether it can cause unexpected delays.
+      return false;
+    }
+  }
 
   // Temporary matrix allocated here to reduce number of allocations for each frame.
   private final float[] anchorMatrix = new float[16];
@@ -75,7 +143,18 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
     surfaceView = findViewById(R.id.surfaceview);
+
     displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
+
+    getDeviceMetrics();
+
+    circleView = findViewById(R.id.circleView);
+    surfaceHolder = circleView.getHolder();
+    surfaceHolder.addCallback(this);
+    surfaceHolder.setFormat(PixelFormat.TRANSLUCENT);
+
+
+
 
     // Set up renderer.
     surfaceView.setPreserveEGLContextOnPause(true);
@@ -83,14 +162,25 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     surfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0); // Alpha used for plane blending.
     surfaceView.setRenderer(this);
     surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
-    surfaceView.setWillNotDraw(false);
+    surfaceView.setWillNotDraw(true);
 
     installRequested = false;
+    meshBtnClicked = true;
+    faceOrientationText = findViewById(R.id.vectorText);
+  }
+
+
+  protected void onMeshBtnClick(){
+
   }
 
   @Override
   protected void onResume() {
     super.onResume();
+
+    waitUntilCameraCaptureSessionIsActive();
+
+    startBackgroundThread();
 
     if (session == null) {
       Exception exception = null;
@@ -158,6 +248,24 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     displayRotationHelper.onResume();
   }
 
+  // Start background handler thread, used to run callbacks without blocking UI thread.
+  private void startBackgroundThread() {
+    backgroundThread = new HandlerThread("sharedCameraBackground");
+    backgroundThread.start();
+    backgroundHandler = new Handler(backgroundThread.getLooper());
+  }
+
+
+  private synchronized void waitUntilCameraCaptureSessionIsActive() {
+    while (!captureSessionChangesPossible) {
+      try {
+        this.wait();
+      } catch (InterruptedException e) {
+        Log.e(TAG, "Unable to wait for a safe time to make changes to the capture session", e);
+      }
+    }
+  }
+
   @Override
   public void onPause() {
     super.onPause();
@@ -213,14 +321,16 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     GLES20.glViewport(0, 0, width, height);
   }
 
+
   @Override
   public void onDrawFrame(GL10 gl) {
     // Clear screen to notify driver it should not load any pixels from previous frame.
     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-
     if (session == null) {
       return;
     }
+
+
     // Notify ARCore session that the view size changed so that the perspective matrix and
     // the video background can be properly adjusted.
     displayRotationHelper.updateSessionIfNeeded(session);
@@ -234,8 +344,17 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
       Frame frame = session.update();
       Camera camera = frame.getCamera();
 
+      /*
+      System.out.println(camera.toString());
+      System.out.println(frame.toString());
+      System.out.println(frame.getTimestamp());
+      System.out.println(frame.getAndroidCameraTimestamp());
+      System.out.println("TAG: "+ TAG); */
+
       // If frame is ready, render camera preview image to the GL surface.
-      backgroundRenderer.draw(frame);
+      // UNCOMMENT THE LINE BELOW TO RENDER CAMERAFEED
+
+      //backgroundRenderer.draw(frame);
 
       // Get projection matrix.
       float[] projmtx = new float[16];
@@ -251,6 +370,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
       final float[] colorCorrectionRgba = new float[4];
       frame.getLightEstimate().getColorCorrection(colorCorrectionRgba, 0);
 
+
+
       for (AugmentedFace face : session.getAllTrackables(AugmentedFace.class)) {
         virtualObject.setToAugmentedFace(face);
         float[] color4f = { 1f, 1f, 1f, 1f };
@@ -258,13 +379,115 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         face.getCenterPose().toMatrix(anchorMatrix, 0);
 
         // Update and draw the model and its shadow.
-        virtualObject.updateModelMatrix(anchorMatrix, 1f);
-        virtualObject.draw(viewmtx, projmtx, colorCorrectionRgba, color4f);
+        if (meshBtnClicked){
+          virtualObject.updateModelMatrix(anchorMatrix, 1f);
+
+          // UNCOMMENT THE LINE BELOW TO RENDER MESH (I think)
+          //virtualObject.draw(viewmtx, projmtx, colorCorrectionRgba, color4f);
+          updateFaceOrientation(face);
+
+
+        }
+        else{
+          displayErrorFace(face);
+          return;
+        }
+
       }
 
     } catch (Throwable t) {
       // Avoid crashing the application due to unhandled exceptions.
       Log.e(TAG, "Exception on the OpenGL thread", t);
     }
+  }
+
+  public void getDeviceMetrics(){
+    DisplayMetrics displayMetrics = new DisplayMetrics();
+    getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+    deviceHeight = displayMetrics.heightPixels;
+    deviceWidth = displayMetrics.widthPixels;
+  }
+
+  public void updateFaceOrientation(AugmentedFace face){
+    float[] x = face.getCenterPose().getXAxis();
+    float[] y = face.getCenterPose().getYAxis();
+    float[] z = face.getCenterPose().getZAxis();
+
+    // Calculate where to draw cursor
+    int cursorHeight = deviceHeight/2;
+    // System.out.println("Device: " + this.deviceWidth + " " + this.deviceHeight);
+    if(z[1] < 0){
+      cursorHeight = (int)Math.round((z[1]*(-1)*deviceHeight*9 + deviceHeight)/2);
+    }
+    else{
+      cursorHeight = (int)Math.round((z[1]*(-1)*deviceHeight*7 + deviceHeight)/2);
+    }
+    int cursorLeft = (int)Math.round((z[0]*(-1)*deviceWidth*6 + deviceWidth)/2);
+
+    if(cursorHeight > deviceHeight){
+      cursorHeight = deviceHeight;
+    }
+    else if(cursorHeight<0){
+      cursorHeight = 0;
+    }
+    if(cursorLeft > deviceWidth){
+      cursorLeft = deviceWidth;
+    }
+      else if(cursorLeft < 0){
+        cursorLeft = 0;
+    }
+
+    // System.out.println("cursorHeight: " + cursorHeight);
+    // System.out.println("cursorWidth: " + cursorLeft);
+
+    circleView.updatePos(cursorLeft, cursorHeight, 50);
+
+    // System.out.println("CenterPose X: " + x[0]);
+    // System.out.println("CenterPose Y: " + y[0]);
+    // System.out.println("CenterPose Z: " + z[0]);
+    // faceOrientationText.setText("CenterPose Z: \n" + z[0]  + "\n" + z[1] + "\n" + z[2] );
+  }
+
+  public void displayErrorFace(AugmentedFace face){
+
+    // faceOrientationText.setText("There is a bug. Reopen the app without closing it.");
+  }
+
+  public void onClickMeshBtn(View view) throws CameraNotAvailableException {
+
+    if(!meshBtnClicked){
+      meshBtnClicked = true;
+      System.out.println("MeshButtonClicked: " + meshBtnClicked);
+    }
+    else{
+      meshBtnClicked = false;
+      System.out.println("MeshButtonClicked: " + meshBtnClicked);
+    }
+  }
+
+  @Override
+  public void surfaceCreated(SurfaceHolder holder) {
+      Log.d(TAG, "circleView createed");
+      circleView.setWillNotDraw(false);
+      Paint paint = new Paint();
+      paint.setColor(Color.YELLOW);
+      System.out.println("Drawing circle on:" + " " + 50 + " " + 50);
+      Canvas canvas = holder.lockCanvas();
+      holder.unlockCanvasAndPost(canvas);
+
+  }
+
+  @Override
+  public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    Paint paint = new Paint();
+    paint.setColor(Color.YELLOW);
+    System.out.println("Drawing circle on:" + " " + 50 + " " + 50);
+    Canvas canvas = holder.lockCanvas();
+    holder.unlockCanvasAndPost(canvas);
+  }
+
+  @Override
+  public void surfaceDestroyed(SurfaceHolder holder) {
+
   }
 }
