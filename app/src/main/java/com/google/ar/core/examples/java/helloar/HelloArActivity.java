@@ -33,6 +33,7 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TabHost;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -69,7 +70,7 @@ import javax.microedition.khronos.opengles.GL10;
  * ARCore API. The application will display any detected planes and will allow the user to tap on a
  * plane to place a 3d model of the Android robot.
  */
-public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.Renderer, SurfaceHolder.Callback {
+public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.Renderer{
   private static final String TAG = HelloArActivity.class.getSimpleName();
 
   // Rendering. The Renderers are created here, and initialized when the GL surface is created.
@@ -100,6 +101,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
   // used to display face orientation vectors on screen
   private TextView faceOrientationText;
+
+  private SurfaceThread surfaceThread;
 
   private Session session;
   private final SnackbarHelper messageSnackbarHelper = new SnackbarHelper();
@@ -148,11 +151,14 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     getDeviceMetrics();
 
-    circleView = findViewById(R.id.circleView);
-    surfaceHolder = circleView.getHolder();
-    surfaceHolder.addCallback(this);
-    surfaceHolder.setFormat(PixelFormat.TRANSLUCENT);
 
+    surfaceThread = new SurfaceThread(this);
+
+    // Get text drawing LinearLayout canvas.
+    LinearLayout drawCircleCanvas = (LinearLayout)findViewById(R.id.drawCircleCanvas);
+
+    // Add surfaceview object to the LinearLayout object.
+    drawCircleCanvas.addView(surfaceThread);
 
 
 
@@ -437,10 +443,12 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         cursorLeft = 0;
     }
 
+
+
     // System.out.println("cursorHeight: " + cursorHeight);
     // System.out.println("cursorWidth: " + cursorLeft);
 
-    circleView.updatePos(cursorLeft, cursorHeight, 50);
+    surfaceThread.setCirclePos(cursorLeft, cursorHeight);
 
     // System.out.println("CenterPose X: " + x[0]);
     // System.out.println("CenterPose Y: " + y[0]);
@@ -465,29 +473,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     }
   }
 
-  @Override
-  public void surfaceCreated(SurfaceHolder holder) {
-      Log.d(TAG, "circleView createed");
-      circleView.setWillNotDraw(false);
-      Paint paint = new Paint();
-      paint.setColor(Color.YELLOW);
-      System.out.println("Drawing circle on:" + " " + 50 + " " + 50);
-      Canvas canvas = holder.lockCanvas();
-      holder.unlockCanvasAndPost(canvas);
 
-  }
 
-  @Override
-  public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-    Paint paint = new Paint();
-    paint.setColor(Color.YELLOW);
-    System.out.println("Drawing circle on:" + " " + 50 + " " + 50);
-    Canvas canvas = holder.lockCanvas();
-    holder.unlockCanvasAndPost(canvas);
-  }
 
-  @Override
-  public void surfaceDestroyed(SurfaceHolder holder) {
 
-  }
 }
