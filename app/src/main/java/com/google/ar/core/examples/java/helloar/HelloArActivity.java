@@ -27,6 +27,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -34,6 +35,7 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TabHost;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -56,11 +58,15 @@ import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
 import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
+import com.google.ar.sceneform.math.Vector3;
 
 
 import java.io.IOException;
+import java.nio.FloatBuffer;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -80,7 +86,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
   private boolean meshBtnClicked;
 
-  private CircleView circleView;
 
   // Used to calculate where to draw cursor
   private int deviceHeight;
@@ -350,17 +355,11 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
       Frame frame = session.update();
       Camera camera = frame.getCamera();
 
-      /*
-      System.out.println(camera.toString());
-      System.out.println(frame.toString());
-      System.out.println(frame.getTimestamp());
-      System.out.println(frame.getAndroidCameraTimestamp());
-      System.out.println("TAG: "+ TAG); */
 
       // If frame is ready, render camera preview image to the GL surface.
       // UNCOMMENT THE LINE BELOW TO RENDER CAMERAFEED
 
-      //backgroundRenderer.draw(frame);
+      backgroundRenderer.draw(frame);
 
       // Get projection matrix.
       float[] projmtx = new float[16];
@@ -389,8 +388,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
           virtualObject.updateModelMatrix(anchorMatrix, 1f);
 
           // UNCOMMENT THE LINE BELOW TO RENDER MESH (I think)
-          //virtualObject.draw(viewmtx, projmtx, colorCorrectionRgba, color4f);
+          virtualObject.draw(viewmtx, projmtx, colorCorrectionRgba, color4f);
           updateFaceOrientation(face);
+          checkMouthOpen(face);
 
 
         }
@@ -405,6 +405,21 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
       // Avoid crashing the application due to unhandled exceptions.
       Log.e(TAG, "Exception on the OpenGL thread", t);
     }
+  }
+
+  public void checkMouthOpen(AugmentedFace face){
+    FloatBuffer buffer = face.getMeshVertices();
+    Vector3 upperLipVec = new Vector3(buffer.get(39), buffer.get(40), buffer.get(41));
+    Vector3 lowerLipVec = new Vector3(buffer.get(42), buffer.get(43), buffer.get(44));
+    //Log.i(TAG, "UpperLip:" + upperLipVec);
+    //Log.i(TAG, "LowerLip:" + lowerLipVec);
+
+    float yDif = upperLipVec.y - lowerLipVec.y;
+    if(yDif > 0.005){
+      Log.i(TAG, "MOUTH OPEN:");
+      surfaceThread.touchScreen();
+    }
+
   }
 
   public void getDeviceMetrics(){
@@ -474,7 +489,20 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   }
 
 
+  public void onClickClickMe(View view) {
+    ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) findViewById(R.id.clickMe).getLayoutParams();
+
+    int randomNumTop = ThreadLocalRandom.current().nextInt(200, 800 + 1);
+    int randomNumLeft = ThreadLocalRandom.current().nextInt( 200, 800 + 1);
 
 
+    params.leftMargin = randomNumTop;
+    params.topMargin = randomNumLeft;
 
+    Log.i(TAG, "TOP:" + randomNumTop);
+    Log.i(TAG, "LEFT:" + randomNumLeft);
+
+
+    findViewById(R.id.clickMe).setLayoutParams(params);
+  }
 }

@@ -17,4 +17,5 @@
 <resources>
   <string name="app_name">HelloAR Java</string>
   <string name="display_mesh">Display mesh</string>
+  <string name="click_me">Click me</string>
 </resources>

@@ -26,7 +26,7 @@
       android:layout_width="fill_parent"
       android:layout_height="fill_parent"
       android:layout_gravity="top"
-      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintStart_toStartOf="@+id/vectorText"
       app:layout_constraintTop_toTopOf="parent" />
 
   <Button
@@ -46,6 +46,26 @@
 
   </Button>
 
+
+  <Button
+      android:id="@+id/clickMe"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="50dp"
+      android:layout_marginTop="400dp"
+      android:layout_marginEnd="8dp"
+      android:layout_marginBottom="28dp"
+      android:onClick="onClickClickMe"
+      android:text="@string/click_me"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.0"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.0">
+
+  </Button>
+
   <LinearLayout
       android:id="@+id/drawCircleCanvas"
       android:layout_width="0dp"
@@ -55,8 +75,6 @@
       app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent" />
-
-
 
 
   <TextView
@@ -69,10 +87,10 @@
       android:layout_marginBottom="573dp"
       app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.149"
+      app:layout_constraintHorizontal_bias="0.139"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent"
-      app:layout_constraintVertical_bias="0.011" />
+      app:layout_constraintVertical_bias="0.0" />
 
 
 </android.support.constraint.ConstraintLayout>
