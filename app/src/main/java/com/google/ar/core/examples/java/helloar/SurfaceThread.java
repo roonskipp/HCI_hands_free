@@ -109,7 +109,7 @@ public class SurfaceThread extends SurfaceView implements SurfaceHolder.Callback
                 }
             }
 
-            Log.i(TAG, "REDRAW" + circleY + " - " + circleX);
+            //Log.i(TAG, "REDRAW" + circleY + " - " + circleX);
             long startTime = System.currentTimeMillis();
 
 
@@ -226,11 +226,9 @@ public class SurfaceThread extends SurfaceView implements SurfaceHolder.Callback
 
     public void setCirclePos(int x, int y){
 
-        if (Math.abs(circleX)-Math.abs(x) > 10){
-
-        }
         circleX = x;
         circleY = y;
+
     }
 
 }

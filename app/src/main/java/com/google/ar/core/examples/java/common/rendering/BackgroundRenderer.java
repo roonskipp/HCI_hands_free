@@ -20,6 +20,8 @@ import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.support.annotation.NonNull;
+import android.util.Log;
+
 import com.google.ar.core.Coordinates2d;
 import com.google.ar.core.Frame;
 import java.io.IOException;

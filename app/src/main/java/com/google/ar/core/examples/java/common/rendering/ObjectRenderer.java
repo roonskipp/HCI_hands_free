@@ -20,6 +20,7 @@ import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.opengl.Matrix;
+import android.util.Log;
 
 import com.google.ar.core.AugmentedFace;
 
@@ -112,6 +113,7 @@ public class ObjectRenderer {
 
   private boolean objectLoaded = false;
 
+
   public ObjectRenderer() {}
 
   /**
@@ -156,6 +158,7 @@ public class ObjectRenderer {
     Bitmap textureBitmap =
         BitmapFactory.decodeStream(context.getAssets().open(diffuseTextureAssetName));
 
+
     GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
     GLES20.glGenTextures(textures.length, textures, 0);
     GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
@@ -167,9 +170,9 @@ public class ObjectRenderer {
     GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
     GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
 
+
     textureBitmap.recycle();
     ShaderUtil.checkGLError(TAG, "Texture loading");
-
     int[] buffers = new int[2];
     GLES20.glGenBuffers(2, buffers, 0);
     vertexBufferId = buffers[0];

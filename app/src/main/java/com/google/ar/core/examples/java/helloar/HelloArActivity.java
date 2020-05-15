@@ -149,6 +149,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    Log.d(TAG, "onCreate()");
     setContentView(R.layout.activity_main);
     surfaceView = findViewById(R.id.surfaceview);
 
@@ -191,7 +192,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     waitUntilCameraCaptureSessionIsActive();
 
-    startBackgroundThread();
+    //startBackgroundThread();
 
     if (session == null) {
       Exception exception = null;
@@ -311,6 +312,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
   @Override
   public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+    Log.d(TAG, "onSurfaceCreated");
     GLES20.glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
     // Prepare the rendering objects. This involves reading shaders, so may throw an IOException.
@@ -336,6 +338,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   @Override
   public void onDrawFrame(GL10 gl) {
     // Clear screen to notify driver it should not load any pixels from previous frame.
+
     GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
     if (session == null) {
       return;
@@ -344,15 +347,20 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     // Notify ARCore session that the view size changed so that the perspective matrix and
     // the video background can be properly adjusted.
+
     displayRotationHelper.updateSessionIfNeeded(session);
 
     try {
+      Log.d(TAG, "onDrawFrame");
       session.setCameraTextureName(backgroundRenderer.getTextureId());
+      Log.d(TAG, "onDrawFrame2");
 
       // Obtain the current frame from ARSession. When the configuration is set to
       // UpdateMode.BLOCKING (it is by default), this will throttle the rendering to the
       // camera framerate.
       Frame frame = session.update();
+      Log.d(TAG, "onDrawFrame3");
+
       Camera camera = frame.getCamera();
 
 
@@ -391,6 +399,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
           virtualObject.draw(viewmtx, projmtx, colorCorrectionRgba, color4f);
           updateFaceOrientation(face);
           checkMouthOpen(face);
+          //checkEyeBlink(face);
 
 
         }
@@ -419,6 +428,23 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
       Log.i(TAG, "MOUTH OPEN:");
       surfaceThread.touchScreen();
     }
+
+  }
+
+  public void checkEyeBlink(AugmentedFace face){
+    FloatBuffer buffer = face.getMeshVertices();
+    Vector3 upperEyeLidVec = new Vector3(buffer.get(1158), buffer.get(1159), buffer.get(1160));
+    Vector3 lowerEyeLidVec = new Vector3(buffer.get(1122), buffer.get(1123), buffer.get(1124));
+
+    float upperEyeLidY = upperEyeLidVec.y;
+    float lowerEyeLidY = lowerEyeLidVec.y;
+
+    Log.i(TAG, "UpperEyelid:" + upperEyeLidY);
+    Log.i(TAG, "LowerEyelid:" + lowerEyeLidY);
+
+    float yDif = upperEyeLidY - lowerEyeLidY;
+
+    Log.i(TAG, "EyelidGap:" + yDif);
 
   }
 
