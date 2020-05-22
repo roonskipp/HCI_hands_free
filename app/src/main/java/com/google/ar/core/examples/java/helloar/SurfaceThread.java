@@ -40,6 +40,10 @@ public class SurfaceThread extends SurfaceView implements SurfaceHolder.Callback
 
     private long touchTime;
 
+    private boolean oldValsInit = false;
+    private int oldCircleX;
+    private int oldCircleY;
+
 
     public SurfaceThread(Context context) {
         super(context);
@@ -224,11 +228,165 @@ public class SurfaceThread extends SurfaceView implements SurfaceHolder.Callback
 
 
 
-    public void setCirclePos(int x, int y){
+    public void setCirclePos(int x, int y, float slow){
 
-        circleX = x;
-        circleY = y;
+
+        if(!oldValsInit){
+            circleX = x;
+            circleY = y;
+            oldValsInit = true;
+        }
+        else{
+            oldCircleX = circleX;
+            oldCircleY = circleY;
+        }
+        if(slow <= 0) {
+            if (x > oldCircleX) {
+                    circleX = oldCircleX + 1;
+                    oldCircleX = circleX;
+                }
+            else{
+                    circleX = oldCircleX - 1;
+                    oldCircleX = circleX;
+                }
+            if (y > oldCircleY) {
+                    circleY = oldCircleY + 1;
+                    oldCircleY = circleY;
+                }
+            else {
+                    circleY = oldCircleY - 1;
+                    oldCircleY = circleY;
+                }
+
+        }
+        else if(slow >=1){
+            circleX = x;
+            circleY = y;
+        }
+        else if(slow <2 && slow >0){
+            if (x > oldCircleX) {
+
+                //circleX += Math.floor((x-oldCircleX)*slow);
+                circleX += Math.floor(10)*slow;
+                if(circleX > x){
+                    circleX = x;
+                }
+                oldCircleX = circleX;
+            }
+            else{
+                //circleX -= Math.floor((oldCircleX-x)*slow);
+                circleX -= Math.floor(10)*slow;
+                if(circleX < x){
+                    circleX = x;
+                }
+                oldCircleX = circleX;
+            }
+            if (y > oldCircleY) {
+                //circleY += Math.floor((y-oldCircleY)*slow);
+                circleY += Math.floor(10)*slow;
+                if(circleY > y){
+                    circleY = y;
+                }
+                oldCircleY = circleY;
+            }
+            else {
+                //circleY -= Math.floor((oldCircleY-y)*slow);
+                circleY -= Math.floor(10)*slow;
+                if(circleY < y){
+                    circleY = y;
+                }
+                oldCircleY = circleY;
+            }
+        }
+        /*
+        else{
+            if (x > oldCircleX){
+                if(x-oldCircleX >= 300){
+                    circleX = oldCircleX+300;
+                    oldCircleX = circleX;
+                }
+                else if(x-oldCircleX >= 100 && x-oldCircleX <300){
+                    circleX = oldCircleX+10;
+                    oldCircleX = circleX;
+                }
+                else if(x-oldCircleX >= 10 && x-oldCircleX <100){
+                    circleX = oldCircleX+5;
+                    oldCircleX = circleX;
+                }
+                else {
+                    circleX = oldCircleX + 1;
+                    oldCircleX = circleX;
+                }
+            }
+            else if (x < oldCircleX){
+                if(x-oldCircleX <= -300){
+                    circleX = oldCircleX-300;
+                    oldCircleX = circleX;
+                }
+                else if(x-oldCircleX <= -200 && x-oldCircleX >-300){
+                    circleX = oldCircleX-10;
+                    oldCircleX = circleX;
+                }
+                else if(x-oldCircleX <= -100 && x-oldCircleX >-200){
+                    circleX = oldCircleX-10;
+                    oldCircleX = circleX;
+                }
+                else if(x-oldCircleX <= -10 && x-oldCircleX > -100){
+                    circleX = oldCircleX-5;
+                    oldCircleX = circleX;
+                }
+                else{
+                    circleX = oldCircleX -1;
+                    oldCircleX = circleX;
+                }
+            }
+            if (y > oldCircleY){
+                if(y-oldCircleY >= 300){
+                    circleY = oldCircleY+300;
+                    oldCircleY = circleY;
+                }
+                else if(y-oldCircleY >= 200 && y-oldCircleY <300){
+                    circleY = oldCircleY+75;
+                    oldCircleY = circleY;
+                }
+                else if(y-oldCircleY >= 100 && y-oldCircleY <200){
+                    circleY = oldCircleY+25;
+                    oldCircleY = circleY;
+                }
+                else if(y-oldCircleY > 10 && y-oldCircleY <100){
+                    circleY = oldCircleY+5;
+                    oldCircleY = circleY;
+                }
+                else {
+                    circleY = oldCircleY + 1;
+                    oldCircleY = circleY;
+                }
+            }
+            else if (y < oldCircleY){
+                if(y-oldCircleY < -300){
+                    circleY = oldCircleY -300;
+                    oldCircleY = circleY;
+                }
+                else if(y-oldCircleY <= -200 && y-oldCircleY < -100){
+                    circleY = oldCircleY -75;
+                    oldCircleY = circleY;
+                }
+                else if(y-oldCircleY <= -100 && y-oldCircleY < -10){
+                    circleY = oldCircleY -10;
+                    oldCircleY = circleY;
+                }
+                else if(y-oldCircleY <= -10 && y-oldCircleY <-1){
+                    circleY = oldCircleY -5;
+                    oldCircleY = circleY;
+                }
+                else {
+                    circleY = oldCircleY - 1;
+                    oldCircleY = circleY;
+                }
+            }
+        }*/
 
     }
+
 
 }

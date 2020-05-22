@@ -36,6 +36,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.Switch;
 import android.widget.TabHost;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -62,7 +63,9 @@ import com.google.ar.sceneform.math.Vector3;
 
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
@@ -105,9 +108,11 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
 
   // used to display face orientation vectors on screen
-  private TextView faceOrientationText;
+  private TextView textView;
 
   private SurfaceThread surfaceThread;
+
+  private Switch debugSwitch;
 
   private Session session;
   private final SnackbarHelper messageSnackbarHelper = new SnackbarHelper();
@@ -120,31 +125,38 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   // A list of CaptureRequest keys that can cause delays when switching between AR and non-AR modes.
   private List<CaptureRequest.Key<?>> keysThatCanCauseCaptureDelaysWhenModified;
 
-  private <T> boolean checkIfKeyCanCauseDelay(CaptureRequest.Key<T> key) {
-    if (Build.VERSION.SDK_INT >= 28) {
-      // On Android P and later, return true if key is difficult to apply per-frame.
-      return keysThatCanCauseCaptureDelaysWhenModified.contains(key);
-    } else {
-      // On earlier Android versions, log a warning since there is no API to determine whether
-      // the key is difficult to apply per-frame. Certain keys such as CONTROL_AE_TARGET_FPS_RANGE
-      // are known to cause a noticeable delay on certain devices.
-      // If avoiding unexpected capture delays when switching between non-AR and AR modes is
-      // important, verify the runtime behavior on each pre-Android P device on which the app will
-      // be distributed. Note that this device-specific runtime behavior may change when the
-      // device's operating system is updated.
-      Log.w(
-              TAG,
-              "Changing "
-                      + key
-                      + " may cause a noticeable capture delay. Please verify actual runtime behavior on"
-                      + " specific pre-Android P devices that this app will be distributed on.");
-      // Allow the change since we're unable to determine whether it can cause unexpected delays.
-      return false;
-    }
-  }
-
   // Temporary matrix allocated here to reduce number of allocations for each frame.
   private final float[] anchorMatrix = new float[16];
+
+    private boolean calibrated = false;
+    private boolean calibratedClosed = false;
+    private boolean calibratedOpen = false;
+
+  private ArrayList<ArrayList<Float>> faces_list;
+
+  private ArrayList mouthValues;
+  private float closedMouthVal;
+  private float openMouthVal;
+  private boolean calibrateClicked = false;
+
+  private Button calibrateMouthBtn;
+  private Button clickMe;
+
+  private double sensitivitySlow = 0.4;
+  private double sensitivityOpen = 1.2;
+
+  private Button increaseSenSlowBtn;
+  private Button decreaseSenSlowBtn;
+  private Button increaseSenOpenBtn;
+  private Button decreaseSenOpenBtn;
+  private Button meshBtn;
+
+  private TextView senText;
+  private TextView touchInfo;
+
+  private TextView yDifText;
+
+  private boolean calibratedMouth = false;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -153,9 +165,13 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     setContentView(R.layout.activity_main);
     surfaceView = findViewById(R.id.surfaceview);
 
+    calibrateMouthBtn = findViewById(R.id.calibrateMouth);
+
     displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
 
     getDeviceMetrics();
+
+    debugSwitch = findViewById(R.id.simpleSwitch);
 
 
     surfaceThread = new SurfaceThread(this);
@@ -176,9 +192,23 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
     surfaceView.setWillNotDraw(true);
 
+    this.meshBtn = findViewById(R.id.displayMeshBtn);
+
     installRequested = false;
     meshBtnClicked = true;
-    faceOrientationText = findViewById(R.id.vectorText);
+    textView = findViewById(R.id.vectorText);
+    senText = findViewById(R.id.senText);
+    touchInfo = findViewById(R.id.touchInfo);
+    textView.setText("HELLO");
+
+    yDifText = findViewById(R.id.yDifText);
+    increaseSenOpenBtn = findViewById(R.id.increaseSenOpenBtn);
+    decreaseSenOpenBtn = findViewById(R.id.decreaseOpenSenBtn);
+    clickMe = findViewById(R.id.clickMe);
+
+    increaseSenSlowBtn = findViewById(R.id.increaseSenSlowBtn);
+    decreaseSenSlowBtn = findViewById(R.id.decreaseSlowSenBtn);
+
   }
 
 
@@ -189,8 +219,12 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   @Override
   protected void onResume() {
     super.onResume();
+    this.updateSenText();
+    this.updateTouchInfo();
 
-    waitUntilCameraCaptureSessionIsActive();
+
+
+      waitUntilCameraCaptureSessionIsActive();
 
     //startBackgroundThread();
 
@@ -351,15 +385,12 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     displayRotationHelper.updateSessionIfNeeded(session);
 
     try {
-      Log.d(TAG, "onDrawFrame");
       session.setCameraTextureName(backgroundRenderer.getTextureId());
-      Log.d(TAG, "onDrawFrame2");
 
       // Obtain the current frame from ARSession. When the configuration is set to
       // UpdateMode.BLOCKING (it is by default), this will throttle the rendering to the
       // camera framerate.
       Frame frame = session.update();
-      Log.d(TAG, "onDrawFrame3");
 
       Camera camera = frame.getCamera();
 
@@ -398,13 +429,12 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
           // UNCOMMENT THE LINE BELOW TO RENDER MESH (I think)
           virtualObject.draw(viewmtx, projmtx, colorCorrectionRgba, color4f);
           updateFaceOrientation(face);
-          checkMouthOpen(face);
+
           //checkEyeBlink(face);
 
 
         }
         else{
-          displayErrorFace(face);
           return;
         }
 
@@ -416,17 +446,69 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     }
   }
 
-  public void checkMouthOpen(AugmentedFace face){
+  public void updateTouchInfo(){
+      this.touchInfo.setText("To touch yDif must be:" + (float)(this.openMouthVal-this.closedMouthVal)*sensitivityOpen + "to go slow yDic must be:" + (this.openMouthVal-this.closedMouthVal)*this.sensitivitySlow);
+  }
+
+  public void updateYDifText(float yDif){
+    this.yDifText.setText(String.valueOf(yDif));
+  }
+
+  public float checkMouthOpen(AugmentedFace face){
     FloatBuffer buffer = face.getMeshVertices();
     Vector3 upperLipVec = new Vector3(buffer.get(39), buffer.get(40), buffer.get(41));
     Vector3 lowerLipVec = new Vector3(buffer.get(42), buffer.get(43), buffer.get(44));
     //Log.i(TAG, "UpperLip:" + upperLipVec);
     //Log.i(TAG, "LowerLip:" + lowerLipVec);
 
-    float yDif = upperLipVec.y - lowerLipVec.y;
-    if(yDif > 0.005){
+    float currentGap = upperLipVec.y - lowerLipVec.y;       // current gap
+    float neededGap = (float) ((this.openMouthVal-this.closedMouthVal)*sensitivityOpen);  // Gap needed to click
+    float slowGap = (float)((this.openMouthVal-this.closedMouthVal)*this.sensitivitySlow);
+    float totalGap = (float) neededGap - slowGap; // gap between slow starts and click appears
+
+    if(currentGap > neededGap){
       Log.i(TAG, "MOUTH OPEN:");
       surfaceThread.touchScreen();
+        runOnUiThread(new Runnable() {
+
+            @Override
+            public void run() {
+
+                updateYDifText(0);
+
+            }
+        });
+        return 0;
+    }
+    else if( currentGap > slowGap){ // mouth is somewhat open, we want to slow down the cursor
+        float partGap = currentGap - slowGap; // the amount we have moved past the slow threshold
+        float slow = (totalGap - partGap)/totalGap; // this number approaches 0 as we move closer to the threshold, but stays close to 1 further from the gap
+
+        // float slow = (float) (neededGap - currentGap)*100;
+        runOnUiThread(new Runnable() {
+
+            @Override
+            public void run() {
+
+                updateYDifText(slow);
+
+            }
+        });
+        return slow;
+
+  }
+    else{
+
+        runOnUiThread(new Runnable() {
+
+            @Override
+            public void run() {
+
+                updateYDifText(1);
+
+            }
+        });
+        return 1;
     }
 
   }
@@ -459,48 +541,191 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     float[] x = face.getCenterPose().getXAxis();
     float[] y = face.getCenterPose().getYAxis();
     float[] z = face.getCenterPose().getZAxis();
+    if(faces_list == null){
+        faces_list = new ArrayList<ArrayList<Float>>();
+    }
 
-    // Calculate where to draw cursor
-    int cursorHeight = deviceHeight/2;
-    // System.out.println("Device: " + this.deviceWidth + " " + this.deviceHeight);
-    if(z[1] < 0){
-      cursorHeight = (int)Math.round((z[1]*(-1)*deviceHeight*9 + deviceHeight)/2);
+    if(faces_list.size() == 10){
+        float slow = 0;
+
+        ArrayList curr_vals = new ArrayList<Float>();
+        curr_vals.add(z[1]);
+        curr_vals.add(z[0]);
+        faces_list.remove(0);
+        faces_list.add(curr_vals);
+
+
+        if(calibratedMouth){
+            slow = checkMouthOpen(face);
+        }
+
+
+        float average_z_1 = 0;
+        float average_z_0 = 0;
+        // get average of last 5 faces
+        for(int i=0; i<faces_list.size(); i++){
+            average_z_1 = (Float) average_z_1 + faces_list.get(i).get(0);
+            average_z_0 = (Float) average_z_0 + faces_list.get(i).get(1);
+        }
+        average_z_1 = (average_z_1/10);
+        average_z_0 = (average_z_0/10);
+
+        // Calculate where to draw cursor
+        int cursorHeight = deviceHeight/2;
+        // System.out.println("Device: " + this.deviceWidth + " " + this.deviceHeight);
+        if(z[1] < 0){
+            cursorHeight = (int)Math.round((average_z_1*(-1)*deviceHeight*9 + deviceHeight)/2);
+        }
+        else{
+            cursorHeight = (int)Math.round((average_z_1*(-1)*deviceHeight*7 + deviceHeight)/2);
+        }
+        int cursorLeft = (int)Math.round((average_z_0*(-1)*deviceWidth*6 + deviceWidth)/2);
+
+        if(cursorHeight > deviceHeight){
+            cursorHeight = deviceHeight;
+        }
+        else if(cursorHeight<0){
+            cursorHeight = 0;
+        }
+        if(cursorLeft > deviceWidth){
+            cursorLeft = deviceWidth;
+        }
+        else if(cursorLeft < 0){
+            cursorLeft = 0;
+        }
+
+        if(this.calibrateClicked){
+            this.calibrateMouth(face);
+        }
+
+        surfaceThread.setCirclePos(cursorLeft, cursorHeight, slow);
     }
     else{
-      cursorHeight = (int)Math.round((z[1]*(-1)*deviceHeight*7 + deviceHeight)/2);
+        ArrayList curr_vals = new ArrayList<Float>();
+        curr_vals.add(z[1]);
+        curr_vals.add(z[0]);
+        faces_list.add(curr_vals);
+
+        float slow = checkMouthOpen(face);
+
+        // Calculate where to draw cursor
+        int cursorHeight = deviceHeight/2;
+        // System.out.println("Device: " + this.deviceWidth + " " + this.deviceHeight);
+        if(z[1] < 0){
+            cursorHeight = (int)Math.round((z[1]*(-1)*deviceHeight*9 + deviceHeight)/2);
+        }
+        else{
+            cursorHeight = (int)Math.round((z[1]*(-1)*deviceHeight*7 + deviceHeight)/2);
+        }
+        int cursorLeft = (int)Math.round((z[0]*(-1)*deviceWidth*6 + deviceWidth)/2);
+
+        if(cursorHeight > deviceHeight){
+            cursorHeight = deviceHeight;
+        }
+        else if(cursorHeight<0){
+            cursorHeight = 0;
+        }
+        if(cursorLeft > deviceWidth){
+            cursorLeft = deviceWidth;
+        }
+        else if(cursorLeft < 0){
+            cursorLeft = 0;
+        }
+
+
+
+        surfaceThread.setCirclePos(cursorLeft, cursorHeight, slow);
     }
-    int cursorLeft = (int)Math.round((z[0]*(-1)*deviceWidth*6 + deviceWidth)/2);
-
-    if(cursorHeight > deviceHeight){
-      cursorHeight = deviceHeight;
-    }
-    else if(cursorHeight<0){
-      cursorHeight = 0;
-    }
-    if(cursorLeft > deviceWidth){
-      cursorLeft = deviceWidth;
-    }
-      else if(cursorLeft < 0){
-        cursorLeft = 0;
-    }
 
 
-
-    // System.out.println("cursorHeight: " + cursorHeight);
-    // System.out.println("cursorWidth: " + cursorLeft);
-
-    surfaceThread.setCirclePos(cursorLeft, cursorHeight);
-
-    // System.out.println("CenterPose X: " + x[0]);
-    // System.out.println("CenterPose Y: " + y[0]);
-    // System.out.println("CenterPose Z: " + z[0]);
-    // faceOrientationText.setText("CenterPose Z: \n" + z[0]  + "\n" + z[1] + "\n" + z[2] );
   }
 
-  public void displayErrorFace(AugmentedFace face){
-
-    // faceOrientationText.setText("There is a bug. Reopen the app without closing it.");
+  public boolean screenTouched(AugmentedFace face){
+      FloatBuffer buffer = face.getMeshVertices();
+      Vector3 upperLipVec = new Vector3(buffer.get(39), buffer.get(40), buffer.get(41));
+      Vector3 lowerLipVec = new Vector3(buffer.get(42), buffer.get(43), buffer.get(44));
+      float yDif = upperLipVec.y - lowerLipVec.y;
+      this.updateYDifText(yDif);
+      if(yDif > this.openMouthVal*0.3){
+          Log.i(TAG, "MOUTH OPEN:");
+          surfaceThread.touchScreen();
+          return true;
+      }
+      else if( yDif > 0.0025){
+          return true;
+      }
+      else{
+          return false;
+      }
   }
+
+  public void calibrateMouth(AugmentedFace face){
+      Log.d(TAG, "calibrate");
+      // calibrate for closed mouth first
+      // calibrate for open mouth after
+      // Set a value slightly lower than average open as open trigger
+      // Set a value slightly above closed for "about to open" value
+
+      // create mouthValues if it is null
+      if(mouthValues == null){
+          mouthValues = new ArrayList();
+      }
+
+      // get values for upper and lower lips, calculate distance between them
+      FloatBuffer buffer = face.getMeshVertices();
+      Vector3 upperLipVec = new Vector3(buffer.get(39), buffer.get(40), buffer.get(41));
+      Vector3 lowerLipVec = new Vector3(buffer.get(42), buffer.get(43), buffer.get(44));
+      float yDif = upperLipVec.y - lowerLipVec.y;
+
+
+
+
+      if(!calibratedClosed){
+          // add to collection of mo
+          mouthValues.add(yDif);
+          float percent = (float)100* ((float)mouthValues.size()/(float)250);
+          Log.d(TAG, "percent:" + String.valueOf(percent));
+          textView.setText("Close Your mouth. Completed " + percent +"%");
+
+
+          if(mouthValues.size() >= 250){
+              // stop calibrating
+              calibratedClosed = true;
+              closedMouthVal = 0;
+              // calculate average closed value
+              for(int i = 0; i<mouthValues.size(); i++){
+                  closedMouthVal += (float) mouthValues.get(i);
+              }
+              this.closedMouthVal = closedMouthVal/1000;
+              mouthValues.clear();
+          }
+      }
+      else if (!calibratedOpen){
+          // add to collection of mo
+          mouthValues.add(yDif);
+          float percent = (float)100*(((float)mouthValues.size())/(float)250);
+          Log.d(TAG, "percent:" + String.valueOf(percent));
+
+
+          textView.setText("Open Your mouth. Completed " + percent +"%");
+
+          if(mouthValues.size() >= 250){
+              textView.setText("Calibration Done");
+              // stop calibrating
+              calibratedOpen = false;
+              calibratedClosed = false;
+              openMouthVal = 0;
+              // calculate average closed value
+              for(int i = 0; i<mouthValues.size(); i++){
+                  openMouthVal += (float) mouthValues.get(i);
+              }
+              this.openMouthVal = openMouthVal/1000;
+              this.calibrateClicked = false;
+              this.calibratedMouth = true;
+          }
+      }
+  }
+
 
   public void onClickMeshBtn(View view) throws CameraNotAvailableException {
 
@@ -518,12 +743,12 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   public void onClickClickMe(View view) {
     ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) findViewById(R.id.clickMe).getLayoutParams();
 
-    int randomNumTop = ThreadLocalRandom.current().nextInt(200, 800 + 1);
-    int randomNumLeft = ThreadLocalRandom.current().nextInt( 200, 800 + 1);
+    int randomNumTop = ThreadLocalRandom.current().nextInt(20, (deviceHeight-25) + 1);
+    int randomNumLeft = ThreadLocalRandom.current().nextInt( 20, (deviceWidth-50) + 1);
 
 
-    params.leftMargin = randomNumTop;
-    params.topMargin = randomNumLeft;
+    params.leftMargin = randomNumLeft;
+    params.topMargin = randomNumTop;
 
     Log.i(TAG, "TOP:" + randomNumTop);
     Log.i(TAG, "LEFT:" + randomNumLeft);
@@ -531,4 +756,83 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     findViewById(R.id.clickMe).setLayoutParams(params);
   }
+
+    public void onClickCalibrateMouth(View view) {
+      this.openMouthVal = 0;
+      this.closedMouthVal = 0;
+      if(this.mouthValues != null){
+          this.mouthValues = new ArrayList();
+      }
+      this.calibrateClicked = true;
+    }
+
+
+    public void onClickIncreaseOpenSen(View view) {
+      this.sensitivityOpen -= 0.05;
+      this.updateSenText();
+
+    }
+
+    public void onClickDecreaseOpenSen(View view) {
+        this.sensitivityOpen += 0.05;
+        this.updateSenText();
+
+    }
+
+    public void onClickDecreaseSlowSen(View view) {
+        this.sensitivitySlow += 0.05;
+        this.updateSenText();
+
+    }
+
+    public void onClickIncreaseSlowSen(View view) {
+        this.sensitivitySlow -= 0.05;
+        this.updateSenText();
+
+    }
+
+    public void updateSenText(){
+        senText.setText("sens. open:" + this.sensitivityOpen + "\t sens. slow: " + this.sensitivitySlow);
+
+    }
+
+    public void onDebugSwitch(View view) {
+        Boolean switchState = this.debugSwitch.isChecked();
+        if(switchState){
+            this.calibrateMouthBtn.setEnabled(false);
+            this.calibrateMouthBtn.setVisibility(View.INVISIBLE);
+            this.increaseSenSlowBtn.setEnabled(false);
+            this.increaseSenSlowBtn.setVisibility(View.INVISIBLE);
+            this.increaseSenOpenBtn.setEnabled(false);
+            this.increaseSenOpenBtn.setVisibility(View.INVISIBLE);
+            this.meshBtn.setEnabled(false);
+            this.meshBtn.setVisibility(View.INVISIBLE);
+            this.textView.setVisibility(View.INVISIBLE);
+            this.yDifText.setVisibility(View.INVISIBLE);
+            this.touchInfo.setVisibility(View.INVISIBLE);
+            this.senText.setVisibility(View.INVISIBLE);
+            this.decreaseSenSlowBtn.setVisibility(View.INVISIBLE);
+            this.decreaseSenSlowBtn.setEnabled(true);
+            this.decreaseSenOpenBtn.setVisibility(View.INVISIBLE);
+            this.decreaseSenOpenBtn.setEnabled(true);
+        }
+        else{
+            this.calibrateMouthBtn.setEnabled(true);
+            this.calibrateMouthBtn.setVisibility(View.VISIBLE);
+            this.increaseSenSlowBtn.setEnabled(true);
+            this.increaseSenSlowBtn.setVisibility(View.VISIBLE);
+            this.increaseSenOpenBtn.setEnabled(true);
+            this.increaseSenOpenBtn.setVisibility(View.VISIBLE);
+            this.meshBtn.setEnabled(true);
+            this.meshBtn.setVisibility(View.VISIBLE);
+            this.textView.setVisibility(View.VISIBLE);
+            this.yDifText.setVisibility(View.VISIBLE);
+            this.touchInfo.setVisibility(View.VISIBLE);
+            this.senText.setVisibility(View.VISIBLE);
+            this.decreaseSenSlowBtn.setVisibility(View.VISIBLE);
+            this.decreaseSenSlowBtn.setEnabled(false);
+            this.decreaseSenOpenBtn.setVisibility(View.VISIBLE);
+            this.decreaseSenOpenBtn.setEnabled(false);
+        }
+    }
 }

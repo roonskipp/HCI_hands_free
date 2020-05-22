@@ -29,40 +29,53 @@
       app:layout_constraintStart_toStartOf="@+id/vectorText"
       app:layout_constraintTop_toTopOf="parent" />
 
+
   <Button
       android:id="@+id/displayMeshBtn"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
-      android:layout_marginStart="256dp"
-      android:layout_marginTop="649dp"
-      android:layout_marginEnd="8dp"
-      android:layout_marginBottom="28dp"
       android:onClick="onClickMeshBtn"
       android:text="@string/display_mesh"
       app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="1.0"
       app:layout_constraintStart_toStartOf="parent"
-      app:layout_constraintTop_toTopOf="parent">
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="1.0">
 
   </Button>
 
-
   <Button
-      android:id="@+id/clickMe"
+      android:id="@+id/calibrateMouth"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
-      android:layout_marginStart="50dp"
-      android:layout_marginTop="400dp"
+      android:layout_marginStart="1dp"
+      android:layout_marginTop="649dp"
       android:layout_marginEnd="8dp"
-      android:layout_marginBottom="28dp"
-      android:onClick="onClickClickMe"
-      android:text="@string/click_me"
+      android:layout_marginBottom="21dp"
+      android:onClick="onClickCalibrateMouth"
+      android:text="@string/calibrate_mouth"
       app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintHorizontal_bias="0.0"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent"
-      app:layout_constraintVertical_bias="0.0">
+      app:layout_constraintVertical_bias="1.0">
+
+  </Button>
+
+  <Button
+      android:id="@+id/clickMe"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:onClick="onClickClickMe"
+      android:text="@string/click_me"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.201"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.638">
 
   </Button>
 
@@ -76,21 +89,117 @@
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent" />
 
-
   <TextView
       android:id="@+id/vectorText"
-      android:layout_width="326dp"
-      android:layout_height="650dp"
-      android:layout_marginStart="44dp"
-      android:layout_marginTop="46dp"
-      android:layout_marginEnd="228dp"
-      android:layout_marginBottom="573dp"
+      android:layout_width="318dp"
+      android:layout_height="124dp"
+      android:text="placeholder"
+      android:textColor="#00C808"
+      android:textSize="18sp"
+      android:visibility="visible"
+      app:layout_constraintBottom_toBottomOf="@+id/surfaceview"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.172"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="@+id/surfaceview"
+      app:layout_constraintVertical_bias="0.886"
+      tools:visibility="visible" />
+
+  <Button
+      android:id="@+id/increaseSenOpenBtn"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:onClick="onClickIncreaseOpenSen"
+      android:text="@string/increaseSenOpenBtn"
       app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.139"
+      app:layout_constraintHorizontal_bias="1.0"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent"
-      app:layout_constraintVertical_bias="0.0" />
+      app:layout_constraintVertical_bias="0.023" />
+
+  <Button
+      android:id="@+id/decreaseSlowSenBtn"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:onClick="onClickDecreaseSlowSen"
+      android:text="@string/decreaseSenSlowBtn"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.05"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.109" />
+
+  <Button
+      android:id="@+id/decreaseOpenSenBtn"
+      android:layout_width="100dp"
+      android:layout_height="wrap_content"
+      android:onClick="onClickDecreaseOpenSen"
+      android:text="@string/decreaseSenOpenBtn"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="1.0"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.109" />
+
+  <Button
+      android:id="@+id/increaseSenSlowBtn"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:onClick="onClickIncreaseSlowSen"
+      android:text="@string/increaseSenSlowBtn"
+
+      app:layout_constraintBottom_toBottomOf="@+id/surfaceview"
+      app:layout_constraintEnd_toEndOf="@id/increaseSenOpenBtn"
+      app:layout_constraintHorizontal_bias="0.0"
+      app:layout_constraintStart_toStartOf="@id/decreaseSlowSenBtn"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.023" />
+
+  <Switch
+      android:id="@+id/simpleSwitch"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="164dp"
+      android:layout_marginTop="704dp"
+      android:onClick="onDebugSwitch"
+      android:text="show debug"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
+
+  <TextView
+      android:id="@+id/senText"
+      android:layout_width="179dp"
+      android:layout_height="80dp"
+      android:layout_marginStart="116dp"
+      android:layout_marginTop="16dp"
+      android:text="TextView"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
+
+  <TextView
+      android:id="@+id/touchInfo"
+      android:layout_width="147dp"
+      android:layout_height="94dp"
+      android:layout_marginTop="176dp"
+      android:text="TextView"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
+
+  <TextView
+      android:id="@+id/yDifText"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="264dp"
+      android:layout_marginTop="216dp"
+      android:text="TextView"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
+
+
 
 
 </android.support.constraint.ConstraintLayout>

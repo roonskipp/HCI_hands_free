@@ -18,4 +18,11 @@
   <string name="app_name">HelloAR Java</string>
   <string name="display_mesh">Display mesh</string>
   <string name="click_me">Click me</string>
+  <string name="calibrate_mouth">Calibrate mouth</string>
+  <string name="increaseSenOpenBtn">+OpenSen</string>
+  <string name="decreaseSenOpenBtn">-OpenSen</string>
+  <string name="increaseSenSlowBtn">+SlowSen</string>
+  <string name="decreaseSenSlowBtn">-SlowSen</string>
+
+
 </resources>
