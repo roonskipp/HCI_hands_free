@@ -46,6 +46,38 @@
   </Button>
 
   <Button
+    android:id="@+id/calibrateFace"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="1dp"
+    android:onClick="onClickCalibrateFace"
+    android:text="@string/calibrate_face"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintHorizontal_bias="1.0"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintVertical_bias="0.929">
+
+</Button>
+
+  <Button
+      android:id="@+id/continueCalibrateFace"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="1dp"
+      android:onClick="onClickContinueCalibrateFace"
+      android:text="@string/continueCalibrateFace"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.575"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.499">
+
+  </Button>
+
+  <Button
       android:id="@+id/calibrateMouth"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
@@ -64,6 +96,17 @@
 
   </Button>
 
+
+  <LinearLayout
+      android:id="@+id/drawCircleCanvas"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
+
   <Button
       android:id="@+id/clickMe"
       android:layout_width="wrap_content"
@@ -79,15 +122,7 @@
 
   </Button>
 
-  <LinearLayout
-      android:id="@+id/drawCircleCanvas"
-      android:layout_width="0dp"
-      android:layout_height="wrap_content"
-      android:orientation="vertical"
-      app:layout_constraintBottom_toBottomOf="parent"
-      app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintStart_toStartOf="parent"
-      app:layout_constraintTop_toTopOf="parent" />
+
 
   <TextView
       android:id="@+id/vectorText"

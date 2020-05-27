@@ -16,6 +16,7 @@
 
 package com.google.ar.core.examples.java.helloar;
 
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -66,6 +67,7 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
@@ -140,10 +142,12 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   private boolean calibrateClicked = false;
 
   private Button calibrateMouthBtn;
+  private Button calibrateFaceBtn;
+  private Button continueCalibrationBtn;
   private Button clickMe;
 
-  private double sensitivitySlow = 0.4;
-  private double sensitivityOpen = 1.2;
+  private float sensitivitySlow = (float) 0.4;
+  private float sensitivityOpen = (float) 1.2;
 
   private Button increaseSenSlowBtn;
   private Button decreaseSenSlowBtn;
@@ -156,7 +160,48 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
   private TextView yDifText;
 
+  // codes used to determine which part of facecalibartion we are in
+  public final static int FaceTop = 5555550;
+  public final static int FaceTopRight = 5555551;
+  public final static int FaceRight = 5555552;
+  public final static int FaceBottomRight = 5555553;
+  public final static int FaceBottom = 5555554;
+  public final static int FaceBottomLeft = 5555555;
+  public final static int FaceLeft = 5555556;
+  public final static int FaceTopLeft = 5555557;
+  public final static int FaceCompleted = 5555558;
+
+  // fields to hold the calibrated facevalues
+  private float FaceTopCalibrated;
+  private float FaceTopRightCalibrated;
+  private float FaceRightCalibrated;
+  private float FaceBottomRightCalibrated;
+  private float FaceBottomCalibrated;
+  private float FaceBottomLeftCalibrated;
+  private float FaceLeftCalibrated = 0;
+  private float FaceTopLeftCalibrated;
+
+  // field to determine how many values to use to calculate the facecalibration
+  public final static int faceCalibrationSize = 100;
+
+  // boolean fields to progress through face calibration
+  private boolean faceCalTextUpdated = false;
+  private boolean CalibratingFace = false;
+  private boolean ContinueCalibration = false;
+  private ArrayList<ArrayList> faceValues;
+  private int currentFaceCalibration = 0;
+
   private boolean calibratedMouth = false;
+
+  public static final String SHARED_PREFS = "sharedPrefs";
+  public static final String FACE_TOP = "face_top";
+  public static final String FACE_RIGHT ="face_right";
+  public static final String FACE_BOTTOM = "face_bottom";
+  public static final String FACE_LEFT = "face_left";
+  public static final String OPEN_MOUTH = "open_mouth";
+  public static final String CLOSED_MOUTH = "closed_mouth";
+  public static final String SENSITIVITY_SLOW = "sensitivity_slow";
+  public static final String SENSITIVITY_OPEN = "sensitivity_open";
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -166,6 +211,14 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     surfaceView = findViewById(R.id.surfaceview);
 
     calibrateMouthBtn = findViewById(R.id.calibrateMouth);
+    calibrateFaceBtn = findViewById(R.id.calibrateFace);
+
+
+
+    continueCalibrationBtn = findViewById(R.id.continueCalibrateFace);
+
+      continueCalibrationBtn.setVisibility(View.INVISIBLE);
+      continueCalibrationBtn.setEnabled(false);
 
     displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
 
@@ -208,6 +261,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     increaseSenSlowBtn = findViewById(R.id.increaseSenSlowBtn);
     decreaseSenSlowBtn = findViewById(R.id.decreaseSlowSenBtn);
+
+    loadCalibration();
 
   }
 
@@ -560,6 +615,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         }
 
 
+
+
         float average_z_1 = 0;
         float average_z_0 = 0;
         // get average of last 5 faces
@@ -570,35 +627,97 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         average_z_1 = (average_z_1/10);
         average_z_0 = (average_z_0/10);
 
-        // Calculate where to draw cursor
-        int cursorHeight = deviceHeight/2;
-        // System.out.println("Device: " + this.deviceWidth + " " + this.deviceHeight);
-        if(z[1] < 0){
-            cursorHeight = (int)Math.round((average_z_1*(-1)*deviceHeight*9 + deviceHeight)/2);
+        if(CalibratingFace){
+            calibrateFace(average_z_0, average_z_1);
+        }
+
+        if(this.FaceTopCalibrated != 0){
+            int cursorHeight = deviceHeight/2;
+            // System.out.println("Device: " + this.deviceWidth + " " + this.deviceHeight);
+            System.out.println((FaceTopCalibrated+(FaceBottomCalibrated*(-1)))/(float)2);
+            System.out.println("z: " + average_z_1);
+            System.out.println("go to: " + Math.round(deviceHeight/2 + ((average_z_1/this.FaceBottomCalibrated)*deviceHeight/2)));
+
+            // for better performance, move this logic to callibration, so it is not caluclated on each frame
+            float midPoint = 0;
+            if(FaceBottomCalibrated > 0){
+                midPoint = (FaceTopCalibrated+(FaceBottomCalibrated))/(float)2;
+            }
+            else{
+                midPoint = (FaceTopCalibrated+(FaceBottomCalibrated*(-1)))/(float)2;
+            }
+            float distTop = FaceTopCalibrated - midPoint;
+            float distBot = midPoint - FaceBottomCalibrated;
+            float currDist = (float) Math.sqrt(Math.pow((double) midPoint - (double) average_z_1, 2));
+            if(z[1] < midPoint){
+                cursorHeight = (int)Math.round(deviceHeight/2 + ((currDist/distBot)*deviceHeight/2));
+
+            }
+            else{
+                cursorHeight =  (int)Math.round(deviceHeight/2 - ((currDist/distTop)*deviceHeight/2));
+            }
+            int cursorLeft = 0;
+            if(z[0] <=0){
+                cursorLeft = (int)Math.round(deviceWidth/2 + (average_z_0/this.FaceRightCalibrated)*deviceWidth/2);
+            }
+            else{
+                cursorLeft = (int)Math.round(deviceWidth/2 - (average_z_0/this.FaceLeftCalibrated)*deviceWidth/2);
+            }
+
+            if(cursorHeight > deviceHeight){
+                cursorHeight = deviceHeight;
+            }
+            else if(cursorHeight<0){
+                cursorHeight = 0;
+            }
+            if(cursorLeft > deviceWidth){
+                cursorLeft = deviceWidth;
+            }
+            else if(cursorLeft < 0){
+                cursorLeft = 0;
+            }
+
+            if(this.calibrateClicked){
+                this.calibrateMouth(face);
+            }
+
+
+            surfaceThread.setCirclePos(cursorLeft, cursorHeight, slow);
         }
         else{
-            cursorHeight = (int)Math.round((average_z_1*(-1)*deviceHeight*7 + deviceHeight)/2);
-        }
-        int cursorLeft = (int)Math.round((average_z_0*(-1)*deviceWidth*6 + deviceWidth)/2);
+            // Calculate where to draw cursor
+            int cursorHeight = deviceHeight/2;
+            // System.out.println("Device: " + this.deviceWidth + " " + this.deviceHeight);
+            if(z[1] < 0){
+                cursorHeight = (int)Math.round((average_z_1*(-1)*deviceHeight*9 + deviceHeight)/2);
+            }
+            else{
+                cursorHeight = (int)Math.round((average_z_1*(-1)*deviceHeight*7 + deviceHeight)/2);
+            }
+            int cursorLeft = (int)Math.round((average_z_0*(-1)*deviceWidth*6 + deviceWidth)/2);
 
-        if(cursorHeight > deviceHeight){
-            cursorHeight = deviceHeight;
-        }
-        else if(cursorHeight<0){
-            cursorHeight = 0;
-        }
-        if(cursorLeft > deviceWidth){
-            cursorLeft = deviceWidth;
-        }
-        else if(cursorLeft < 0){
-            cursorLeft = 0;
+            if(cursorHeight > deviceHeight){
+                cursorHeight = deviceHeight;
+            }
+            else if(cursorHeight<0){
+                cursorHeight = 0;
+            }
+            if(cursorLeft > deviceWidth){
+                cursorLeft = deviceWidth;
+            }
+            else if(cursorLeft < 0){
+                cursorLeft = 0;
+            }
+
+            if(this.calibrateClicked){
+                this.calibrateMouth(face);
+            }
+
+
+            surfaceThread.setCirclePos(cursorLeft, cursorHeight, slow);
         }
 
-        if(this.calibrateClicked){
-            this.calibrateMouth(face);
-        }
 
-        surfaceThread.setCirclePos(cursorLeft, cursorHeight, slow);
     }
     else{
         ArrayList curr_vals = new ArrayList<Float>();
@@ -611,7 +730,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         // Calculate where to draw cursor
         int cursorHeight = deviceHeight/2;
         // System.out.println("Device: " + this.deviceWidth + " " + this.deviceHeight);
+
         if(z[1] < 0){
+
             cursorHeight = (int)Math.round((z[1]*(-1)*deviceHeight*9 + deviceHeight)/2);
         }
         else{
@@ -722,6 +843,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
               this.openMouthVal = openMouthVal/1000;
               this.calibrateClicked = false;
               this.calibratedMouth = true;
+              saveCalibration();
           }
       }
   }
@@ -757,6 +879,253 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     findViewById(R.id.clickMe).setLayoutParams(params);
   }
 
+  // takes in x and y values of the z vector through the face
+  public void calibrateFace(float x, float y){
+
+      if(faceValues == null){
+          faceValues = new ArrayList<ArrayList>();
+      }
+
+      // get the z vector
+
+
+      switch (this.currentFaceCalibration){
+          case 0:
+              // Code
+              this.currentFaceCalibration = this.FaceTop;
+              faceValues = new ArrayList<ArrayList>();
+              break;
+          case FaceTop:
+              if(faceValues.size() == 0) {
+                  if (!faceCalTextUpdated) {
+                      textView.setText("Face upwards to comfortable position and press\n continue to start calibrating");
+                      faceCalTextUpdated = true;
+                  }
+              }
+              if(this.ContinueCalibration){
+                  if(faceValues.size() < faceCalibrationSize){
+                      ArrayList<Float> vals = new ArrayList<>();
+                      vals.add(x);
+                      vals.add(y);
+                      faceValues.add(vals);
+                  }
+                  else if(faceValues.size() >= faceCalibrationSize){
+                      // pause calibration
+                      ContinueCalibration = false;
+                      // calculate average of the calibrationvalues
+                      float averagedCalibrationValue = 0;
+                      for(int i = 0; i<faceCalibrationSize; i++){
+                            averagedCalibrationValue += (float) faceValues.get(i).get(1);
+                      }
+                      FaceTopCalibrated = averagedCalibrationValue/faceCalibrationSize;
+                      this.currentFaceCalibration = FaceRight;
+                      this.ContinueCalibration = false;
+                      runOnUiThread(new Runnable() {
+
+                          @Override
+                          public void run() {
+
+                              continueCalibrationBtn.setVisibility(View.VISIBLE);
+                              continueCalibrationBtn.setEnabled(true);
+
+                          }
+                      });
+
+                      faceValues.clear();
+                      faceCalTextUpdated = false;
+                  }
+              }
+              break;
+
+          /*case FaceTopRight:
+              if(faceValues.size() == 0) {
+                  if (!faceCalTextUpdated) {
+                      textView.setText("Face upwards and press\n to start calibrating");
+                      faceCalTextUpdated = true;
+                  }
+              }
+              if(this.ContinueCalibration){
+                  if(faceValues.size() < faceCalibrationSize){
+                      ArrayList<Float> vals = new ArrayList<>();
+                      vals.add(x);
+                      vals.add(y);
+                      faceValues.add(vals);
+                  }
+                  else if(faceValues.size() >= faceCalibrationSize){
+                      // pause calibration
+                      ContinueCalibration = false;
+                      // calculate average of the calibrationvalues
+                      float averagedCalibrationValue = 0;
+                      for(int i = 0; i<faceCalibrationSize; i++){
+                          averagedCalibrationValue += (float) faceValues.get(i).get(0);
+                      }
+                      FaceTopCalibrated = averagedCalibrationValue/faceCalibrationSize;
+                      this.currentFaceCalibration = FaceTopRight;
+                      this.ContinueCalibration = false;
+                      faceValues.clear();
+                      faceCalTextUpdated = false;
+              break; */
+
+          case FaceRight:
+              if(faceValues.size() == 0) {
+                  if (!faceCalTextUpdated) {
+                      textView.setText("Face to the right to comfortable position and press\n continue to start calibrating");
+                      faceCalTextUpdated = true;
+                  }
+              }
+              if(this.ContinueCalibration) {
+                  if (faceValues.size() < faceCalibrationSize) {
+                      ArrayList<Float> vals = new ArrayList<>();
+                      vals.add(x);
+                      vals.add(y);
+                      faceValues.add(vals);
+                  } else if (faceValues.size() >= faceCalibrationSize) {
+                      // pause calibration
+                      ContinueCalibration = false;
+                      // calculate average of the calibrationvalues
+                      float averagedCalibrationValue = 0;
+                      for (int i = 0; i < faceCalibrationSize; i++) {
+                          averagedCalibrationValue += (float) faceValues.get(i).get(0);
+                      }
+                      FaceRightCalibrated = averagedCalibrationValue / faceCalibrationSize;
+                      this.currentFaceCalibration = FaceBottom;
+                      this.ContinueCalibration = false;
+                      runOnUiThread(new Runnable() {
+
+                          @Override
+                          public void run() {
+
+                              continueCalibrationBtn.setVisibility(View.VISIBLE);
+                              continueCalibrationBtn.setEnabled(true);
+
+                          }
+                      });
+
+                      faceValues.clear();
+                      faceCalTextUpdated = false;
+                  }
+              }
+              break;
+
+          /*case FaceBottomRight:
+              break; */
+
+          case FaceBottom:
+              if(faceValues.size() == 0) {
+                  if (!faceCalTextUpdated) {
+                      textView.setText("Face downwards to comfortable position and press\n continue to start calibrating");
+                      faceCalTextUpdated = true;
+                  }
+              }
+              if(this.ContinueCalibration) {
+                  if (faceValues.size() < faceCalibrationSize) {
+                      ArrayList<Float> vals = new ArrayList<>();
+                      vals.add(x);
+                      vals.add(y);
+                      faceValues.add(vals);
+                  } else if (faceValues.size() >= faceCalibrationSize) {
+                      // pause calibration
+                      ContinueCalibration = false;
+                      // calculate average of the calibrationvalues
+                      float averagedCalibrationValue = 0;
+                      for (int i = 0; i < faceCalibrationSize; i++) {
+                          averagedCalibrationValue += (float) faceValues.get(i).get(1);
+                      }
+                      FaceBottomCalibrated = averagedCalibrationValue / faceCalibrationSize;
+                      this.currentFaceCalibration = FaceLeft;
+                      this.ContinueCalibration = false;
+                      runOnUiThread(new Runnable() {
+
+                          @Override
+                          public void run() {
+
+                              continueCalibrationBtn.setVisibility(View.VISIBLE);
+                              continueCalibrationBtn.setEnabled(true);
+
+                          }
+                      });
+
+                      faceValues.clear();
+                      faceCalTextUpdated = false;
+                  }
+              }
+              break;
+
+          /*case FaceBottomLeft:
+              break;*/
+
+          case FaceLeft:
+              if(faceValues.size() == 0) {
+                  if (!faceCalTextUpdated) {
+                      textView.setText("Face left to comfortable position and press\n continue to start calibrating");
+                      faceCalTextUpdated = true;
+                  }
+              }
+              if(this.ContinueCalibration) {
+                  if (faceValues.size() < faceCalibrationSize) {
+                      ArrayList<Float> vals = new ArrayList<>();
+                      vals.add(x);
+                      vals.add(y);
+                      faceValues.add(vals);
+                  } else if (faceValues.size() >= faceCalibrationSize) {
+                      // pause calibration
+                      ContinueCalibration = false;
+                      // calculate average of the calibrationvalues
+                      float averagedCalibrationValue = 0;
+                      for (int i = 0; i < faceCalibrationSize; i++) {
+                          averagedCalibrationValue += (float) faceValues.get(i).get(0);
+                      }
+                      FaceLeftCalibrated = averagedCalibrationValue / faceCalibrationSize;
+                      this.currentFaceCalibration = 0;
+                      this.CalibratingFace = false;
+                      this.ContinueCalibration = false;
+                      textView.setText("Calibration completed\n" + this.FaceTopCalibrated + " " + this.FaceRightCalibrated + "\n" + this.FaceBottomCalibrated + " " + this.FaceLeftCalibrated);
+                      runOnUiThread(new Runnable() {
+
+                          @Override
+                          public void run() {
+
+                              continueCalibrationBtn.setVisibility(View.INVISIBLE);
+                              continueCalibrationBtn.setEnabled(false);
+                              calibrateFaceBtn.setVisibility(View.VISIBLE);
+                              calibrateFaceBtn.setEnabled(true);
+
+                          }
+                      });
+
+                      faceValues.clear();
+                      faceCalTextUpdated = false;
+                      saveCalibration();
+                  }
+              }
+              break;
+
+          /*case FaceTopLeft:
+              break;*/
+
+          default:
+              break;
+
+      }
+      // if nothing is calibrated yet display look up
+
+      // look right corner
+
+      // after calibrating look up change display text to look right
+
+      // look downright corner
+
+      // --- look down
+
+      // look downleft corner
+
+      // --- look left
+
+      // look up left corner
+      //
+  }
+
+
     public void onClickCalibrateMouth(View view) {
       this.openMouthVal = 0;
       this.closedMouthVal = 0;
@@ -770,24 +1139,28 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     public void onClickIncreaseOpenSen(View view) {
       this.sensitivityOpen -= 0.05;
       this.updateSenText();
+      saveSlowOpenSensitvity();
 
     }
 
     public void onClickDecreaseOpenSen(View view) {
         this.sensitivityOpen += 0.05;
         this.updateSenText();
+        saveSlowOpenSensitvity();
 
     }
 
     public void onClickDecreaseSlowSen(View view) {
         this.sensitivitySlow += 0.05;
         this.updateSenText();
+        saveSlowOpenSensitvity();
 
     }
 
     public void onClickIncreaseSlowSen(View view) {
         this.sensitivitySlow -= 0.05;
         this.updateSenText();
+        saveSlowOpenSensitvity();
 
     }
 
@@ -798,7 +1171,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     public void onDebugSwitch(View view) {
         Boolean switchState = this.debugSwitch.isChecked();
-        if(switchState){
+        if(!switchState){
             this.calibrateMouthBtn.setEnabled(false);
             this.calibrateMouthBtn.setVisibility(View.INVISIBLE);
             this.increaseSenSlowBtn.setEnabled(false);
@@ -812,9 +1185,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             this.touchInfo.setVisibility(View.INVISIBLE);
             this.senText.setVisibility(View.INVISIBLE);
             this.decreaseSenSlowBtn.setVisibility(View.INVISIBLE);
-            this.decreaseSenSlowBtn.setEnabled(true);
+            this.decreaseSenSlowBtn.setEnabled(false);
             this.decreaseSenOpenBtn.setVisibility(View.INVISIBLE);
-            this.decreaseSenOpenBtn.setEnabled(true);
+            this.decreaseSenOpenBtn.setEnabled(false);
         }
         else{
             this.calibrateMouthBtn.setEnabled(true);
@@ -830,9 +1203,111 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             this.touchInfo.setVisibility(View.VISIBLE);
             this.senText.setVisibility(View.VISIBLE);
             this.decreaseSenSlowBtn.setVisibility(View.VISIBLE);
-            this.decreaseSenSlowBtn.setEnabled(false);
+            this.decreaseSenSlowBtn.setEnabled(true);
             this.decreaseSenOpenBtn.setVisibility(View.VISIBLE);
-            this.decreaseSenOpenBtn.setEnabled(false);
+            this.decreaseSenOpenBtn.setEnabled(true);
         }
+    }
+
+    public void onClickCalibrateFace(View view) {
+
+      // flip a boolean that makes a call to drawframe flow through a cralibrateFace logic run
+        this.CalibratingFace = true;
+        this.calibrateFaceBtn.setEnabled(false);
+        this.calibrateFaceBtn.setVisibility(View.INVISIBLE);
+        this.continueCalibrationBtn.setVisibility(View.VISIBLE);
+        this.continueCalibrationBtn.setEnabled(true);
+
+    }
+
+    public void onClickContinueCalibrateFace(View view) {
+      this.ContinueCalibration = true;
+        this.continueCalibrationBtn.setVisibility(View.INVISIBLE);
+        this.continueCalibrationBtn.setEnabled(false);
+    }
+
+    public void saveCalibration(){
+        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        if(sensitivitySlow == 0){
+            sensitivitySlow = (float) 0.55;
+        }
+        if(sensitivityOpen == 0){
+            sensitivityOpen = (float) 0.90;
+        }
+        editor.putFloat(FACE_TOP, FaceTopCalibrated);
+        editor.putFloat(FACE_RIGHT, FaceRightCalibrated);
+        editor.putFloat(FACE_BOTTOM, FaceBottomCalibrated);
+        editor.putFloat(FACE_LEFT, FaceLeftCalibrated);
+        editor.putFloat(OPEN_MOUTH, openMouthVal);
+        editor.putFloat(CLOSED_MOUTH, closedMouthVal);
+        editor.putFloat(SENSITIVITY_OPEN, sensitivityOpen);
+        editor.putFloat(SENSITIVITY_SLOW, sensitivitySlow);
+        editor.apply();
+        Toast.makeText(this, "Calibration saved", Toast.LENGTH_SHORT);
+    }
+
+    public void saveSlowOpenSensitvity(){
+        SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+
+        editor.putFloat(SENSITIVITY_OPEN, sensitivityOpen);
+        editor.putFloat(SENSITIVITY_SLOW, sensitivitySlow);
+        editor.apply();
+        Toast.makeText(this, "Sensitivty saved", Toast.LENGTH_SHORT);
+    }
+
+
+
+    public void loadCalibration(){
+      SharedPreferences sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
+      FaceTopCalibrated = sharedPreferences.getFloat(FACE_TOP, 0);
+      FaceRightCalibrated = sharedPreferences.getFloat(FACE_RIGHT, 0);
+      FaceBottomCalibrated = sharedPreferences.getFloat(FACE_BOTTOM, 0);
+      FaceLeftCalibrated = sharedPreferences.getFloat(FACE_LEFT, 0);
+      openMouthVal = sharedPreferences.getFloat(OPEN_MOUTH, 0);
+      closedMouthVal = sharedPreferences.getFloat(CLOSED_MOUTH, 0);
+      sensitivityOpen = sharedPreferences.getFloat(SENSITIVITY_OPEN, 0);
+      sensitivitySlow = sharedPreferences.getFloat(SENSITIVITY_SLOW, 0);
+      if(closedMouthVal == 0 || openMouthVal == 0){
+          if(FaceTopCalibrated == 0){
+              runOnUiThread(new Runnable() {
+
+                  @Override
+                  public void run() {
+
+                      textView.setText("Calibrate mouth and face");
+
+                  }
+              });
+          }
+          else{
+              runOnUiThread(new Runnable() {
+
+                  @Override
+                  public void run() {
+
+                      textView.setText("Calibrate mouth");
+
+                  }
+              });
+          }
+
+      }
+      else if(FaceTopCalibrated == 0){
+          calibratedMouth = true;
+          runOnUiThread(new Runnable() {
+
+              @Override
+              public void run() {
+
+                  textView.setText("Calibrate face");
+
+              }
+          });
+      }
+      else{
+          calibratedMouth = true;
+      }
     }
 }

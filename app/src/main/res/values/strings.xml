@@ -19,6 +19,10 @@
   <string name="display_mesh">Display mesh</string>
   <string name="click_me">Click me</string>
   <string name="calibrate_mouth">Calibrate mouth</string>
+  <string name="calibrate_face">Calibrate Face</string>
+  <string name="continueCalibrateFace">Continue Calibration</string>
+
+
   <string name="increaseSenOpenBtn">+OpenSen</string>
   <string name="decreaseSenOpenBtn">-OpenSen</string>
   <string name="increaseSenSlowBtn">+SlowSen</string>
