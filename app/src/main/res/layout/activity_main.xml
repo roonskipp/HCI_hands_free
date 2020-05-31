@@ -78,6 +78,22 @@
   </Button>
 
   <Button
+      android:id="@+id/continueCalibrateMouth"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="1dp"
+      android:onClick="onClickContinueCalibrateMouth"
+      android:text="@string/continueCalibrateMouth"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.575"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.374">
+
+  </Button>
+
+  <Button
       android:id="@+id/calibrateMouth"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
@@ -107,6 +123,7 @@
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent" />
 
+
   <Button
       android:id="@+id/clickMe"
       android:layout_width="wrap_content"
@@ -115,14 +132,12 @@
       android:text="@string/click_me"
       app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.201"
+      app:layout_constraintHorizontal_bias="0.507"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent"
-      app:layout_constraintVertical_bias="0.638">
+      app:layout_constraintVertical_bias="0.0">
 
   </Button>
-
-
 
   <TextView
       android:id="@+id/vectorText"
@@ -228,13 +243,52 @@
       android:id="@+id/yDifText"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
-      android:layout_marginStart="264dp"
-      android:layout_marginTop="216dp"
+      android:layout_marginStart="332dp"
+      android:layout_marginTop="236dp"
       android:text="TextView"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent" />
 
+  <Button
+      android:id="@+id/fittsTest"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="432dp"
+      android:layout_marginEnd="132dp"
+      android:text="Start Fitts Test"
+      android:onClick="onClickFitts"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
 
+  <TextView
+      android:id="@+id/lipGapText"
+      android:layout_width="101dp"
+      android:layout_height="88dp"
+      android:layout_marginStart="32dp"
+      android:layout_marginTop="432dp"
+      android:text="lip-gap"
+      android:textColor="#FF5722"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
+
+  <TextView
+      android:id="@+id/calibratedMouthText"
+      android:layout_width="202dp"
+      android:layout_height="90dp"
+      android:layout_marginStart="164dp"
+      android:layout_marginTop="132dp"
+      android:text="shows calibrated mouth"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
+
+  <!--
+  <WebView
+      android:id="@+id/webview"
+      android:layout_width="417dp"
+      android:layout_height="200dp"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintTop_toTopOf="parent" /> -->
 
 
 </android.support.constraint.ConstraintLayout>
